@@ -143,7 +143,7 @@ jobs:
 
       - name: Composer audit
         working-directory: backend
-        run: composer audit --no-interaction
+        run: composer audit --locked --no-interaction
 
       - name: Installer Node
         uses: actions/setup-node@v4
