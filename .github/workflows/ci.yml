@@ -209,3 +209,58 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-test:
+    name: Deploiement en test + smoke tests
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment: test
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Version et configuration de test (jetable)
+        run: |
+          echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          DBPW=$(openssl rand -hex 16)
+          APPKEY="base64:$(openssl rand -base64 32)"
+          echo "::add-mask::$DBPW"
+          echo "::add-mask::$APPKEY"
+          echo "DB_PASSWORD=$DBPW" >> "$GITHUB_ENV"
+          echo "APP_KEY=$APPKEY" >> "$GITHUB_ENV"
+
+      - name: Deployer les images publiees
+        run: |
+          docker compose -f docker-compose.test.yml pull
+          docker compose -f docker-compose.test.yml up -d
+
+      - name: Smoke tests et health check
+        run: |
+          sed -i 's/\r$//' scripts/smoke-test.sh
+          EXPECTED_VERSION="$IMAGE_TAG" bash scripts/smoke-test.sh
+
+      - name: Logs des conteneurs (en cas d'echec)
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs --no-color
+
+      - name: Trace de la version deployee
+        if: success()
+        run: |
+          echo "### Deploiement en test" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version deployee : \`$IMAGE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit : \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke tests : OK" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Arreter l'environnement de test
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v

@@ -29,6 +29,26 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Sonde de sante (publique) : utilisee par Docker, le CI et la supervision
+Route::get('/health', function () {
+    try {
+        \Illuminate\Support\Facades\DB::select('select 1');
+        $db = 'up';
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Health check: base de donnees indisponible', [
+            'message' => $e->getMessage(),
+        ]);
+        $db = 'down';
+    }
+
+    return response()->json([
+        'status' => $db === 'up' ? 'ok' : 'degraded',
+        'database' => $db,
+        'version' => env('APP_VERSION', 'dev'),
+        'time' => now()->toIso8601String(),
+    ], $db === 'up' ? 200 : 503);
+});
+
 // Routes protégées
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
