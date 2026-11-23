@@ -80,7 +80,7 @@ class ProfileAnalysisController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'analyse du profil: ' . $e->getMessage(),
+                'message' => 'Erreur lors de l\'analyse du profil.',
             ], 500);
         }
     }

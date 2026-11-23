@@ -39,7 +39,7 @@ class SkillController extends Controller
             ], 422);
         }
 
-        $skill = $request->user()->skills()->create($request->all());
+        $skill = $request->user()->skills()->create($validator->validated());
 
         return response()->json([
             'success' => true,
@@ -75,7 +75,7 @@ class SkillController extends Controller
             ], 422);
         }
 
-        $skill->update($request->all());
+        $skill->update($validator->validated());
 
         return response()->json([
             'success' => true,
