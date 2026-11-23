@@ -1,0 +1,25 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependances
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+
+# build, logs, caches, rapports de test
+dist/
+.angular/
+.pytest_cache/
+.phpunit.result.cache
+test-results/
+playwright-report/
+storage/logs/
+*.log
+
+# fichiers a ne pas publier
+backend/envoi_backend.txt
+_pack/

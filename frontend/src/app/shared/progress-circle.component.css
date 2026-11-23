@@ -1,0 +1,67 @@
+/* ============================================
+   PROGRESS CIRCLE COMPONENT
+   ============================================ */
+
+.progress-circle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-svg {
+  transform: rotate(-90deg);
+}
+
+.progress-track {
+  opacity: 0.3;
+}
+
+.progress-bar {
+  transition: stroke-dashoffset 1s ease-in-out;
+}
+
+.progress-content {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.progress-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+.progress-score {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-top: 0.125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .progress-value {
+    font-size: 1.25rem;
+  }
+
+  .progress-label {
+    font-size: 0.688rem;
+  }
+
+  .progress-score {
+    font-size: 0.625rem;
+  }
+}

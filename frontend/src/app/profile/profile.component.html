@@ -1,0 +1,1033 @@
+<div class="profile-layout">
+  <!-- Sidebar -->
+  <app-sidebar
+    [isCollapsed]="isSidebarCollapsed"
+    [userRole]="user?.role === 'etudiant' ? 'student' : 'company'"
+    [userName]="user?.first_name + ' ' + user?.last_name"
+    [userAvatar]="profile?.photo_url || ''"
+    (toggleCollapse)="onSidebarToggle()"
+    (logout)="onSidebarLogout()"
+  ></app-sidebar>
+
+  <!-- Main Content -->
+  <main class="profile-main" [class.sidebar-collapsed]="isSidebarCollapsed">
+    <header class="profile-mobile-nav">
+      <button
+        class="sidebar-toggle"
+        type="button"
+        (click)="onSidebarToggle()"
+        [attr.aria-expanded]="!isSidebarCollapsed"
+        aria-label="Ouvrir ou fermer le menu"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <span>Mon profil</span>
+    </header>
+
+    <!-- Notification Toast -->
+    <app-notification-toast
+      [show]="showNotification"
+      [type]="notificationType"
+      [title]="notificationTitle"
+      [message]="notificationMessage"
+      (close)="onNotificationClose()"
+    ></app-notification-toast>
+
+    <!-- Content -->
+    <div class="profile-container">
+  <!-- Loading state -->
+  <div class="loading-container" *ngIf="isCheckingProfile">
+    <div class="spinner"></div>
+    <p>Chargement...</p>
+  </div>
+
+  <section class="profile-completion-card"
+    *ngIf="user?.role === 'etudiant' && !isCheckingProfile"
+    aria-labelledby="profile-completion-title">
+    <div class="profile-completion-heading">
+      <div>
+        <h2 id="profile-completion-title">Profil complété à {{ profileCompletionPercentage }} %</h2>
+        <p>Complétez ces informations pour mieux présenter votre parcours.</p>
+      </div>
+      <span class="profile-completion-value">{{ profileCompletionPercentage }} %</span>
+    </div>
+    <div class="profile-completion-track" role="progressbar"
+      [attr.aria-valuenow]="profileCompletionPercentage" aria-valuemin="0" aria-valuemax="100"
+      [attr.aria-label]="'Profil complété à ' + profileCompletionPercentage + ' %'">
+      <span [style.width.%]="profileCompletionPercentage"></span>
+    </div>
+    <div class="profile-completion-tips" *ngIf="profileMissingItems.length">
+      <strong>Pour améliorer votre profil :</strong>
+      <div class="profile-completion-links">
+        <button type="button" *ngFor="let item of profileMissingItems" (click)="navigateToCompletionItem(item)">
+          {{ item }} →
+        </button>
+      </div>
+    </div>
+    <p class="profile-completion-complete" *ngIf="!profileMissingItems.length">
+      Votre profil étudiant est complet.
+    </p>
+  </section>
+
+  <!-- Profile Creation Form (for users without profile) -->
+  <div class="profile-creation" *ngIf="!isCheckingProfile && !hasProfile">
+    <div class="profile-header">
+      <h1>Créer mon profil</h1>
+      <p class="subtitle">Complétez vos informations pour accéder aux opportunités de stage</p>
+      <div class="user-info">
+        <span class="user-name">{{ user?.first_name }} {{ user?.last_name }}</span>
+        <span class="user-role">{{ getRoleLabel() }}</span>
+      </div>
+      <button class="logout-btn" (click)="logout()">Déconnexion</button>
+    </div>
+
+    <div class="profile-content">
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+        <button type="button" class="feedback-action" *ngIf="errorMessage.includes('Non authentifié')" (click)="logout()">Se reconnecter</button>
+      </div>
+
+      <div class="success-message" *ngIf="successMessage">
+        {{ successMessage }}
+      </div>
+
+      <!-- Student Profile Form -->
+      <form id="profile-creation-form" *ngIf="user?.role === 'etudiant'" (ngSubmit)="onSubmit()" class="profile-form">
+        <div class="form-group">
+          <label for="formation">Formation *</label>
+          <input
+            type="text"
+            id="formation"
+            [(ngModel)]="studentData.formation"
+            name="formation"
+            required
+            placeholder="Ex: Licence Informatique"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="specialite">Spécialité *</label>
+          <input
+            type="text"
+            id="specialite"
+            [(ngModel)]="studentData.specialite"
+            name="specialite"
+            required
+            placeholder="Ex: Développement Web"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="niveau">Niveau *</label>
+          <select
+            id="niveau"
+            [(ngModel)]="studentData.niveau"
+            name="niveau"
+            required
+          >
+            <option value="">Sélectionnez votre niveau</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+            <option value="Doctorat">Doctorat</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="telephone">Téléphone</label>
+          <input type="tel" id="telephone" [(ngModel)]="studentData.telephone" name="telephone" placeholder="Votre numéro de téléphone">
+        </div>
+
+        <div class="form-group">
+          <label for="ville">Ville</label>
+          <input type="text" id="ville" [(ngModel)]="studentData.ville" name="ville" placeholder="Votre ville">
+        </div>
+
+        <div class="form-group">
+          <label for="bio">À propos de vous</label>
+          <textarea id="bio" [(ngModel)]="studentData.bio" name="bio" rows="3" maxlength="1000" placeholder="Présentez-vous en quelques phrases..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="linkedin">Profil LinkedIn</label>
+          <input type="url" id="linkedin" [(ngModel)]="studentData.linkedin" name="linkedin" placeholder="https://linkedin.com/in/...">
+        </div>
+
+        <div class="form-group">
+          <label for="github">Profil GitHub</label>
+          <input type="url" id="github" [(ngModel)]="studentData.github" name="github" placeholder="https://github.com/...">
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Créer mon profil</span>
+          <span *ngIf="isLoading">Création en cours...</span>
+        </button>
+      </form>
+
+      <!-- Company Profile Form -->
+      <form *ngIf="user?.role === 'entreprise'" (ngSubmit)="onSubmit()" class="profile-form">
+        <div class="form-group">
+          <label for="nom_entreprise">Nom de l'entreprise *</label>
+          <input
+            type="text"
+            id="nom_entreprise"
+            [(ngModel)]="companyData.nom_entreprise"
+            name="nom_entreprise"
+            required
+            placeholder="Ex: Tech Solutions SAS"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="secteur_activite">Secteur d'activité *</label>
+          <input
+            type="text"
+            id="secteur_activite"
+            [(ngModel)]="companyData.secteur_activite"
+            name="secteur_activite"
+            required
+            placeholder="Ex: Technologies de l'information"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="adresse">Adresse *</label>
+          <textarea
+            id="adresse"
+            [(ngModel)]="companyData.adresse"
+            name="adresse"
+            required
+            rows="3"
+            placeholder="Ex: 123 Rue de la Tech, 75001 Paris"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description *</label>
+          <textarea
+            id="description"
+            [(ngModel)]="companyData.description"
+            name="description"
+            required
+            rows="5"
+            placeholder="Décrivez votre entreprise et les types de stages que vous proposez..."
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="isLoading">
+          <span *ngIf="!isLoading">Créer mon profil</span>
+          <span *ngIf="isLoading">Création en cours...</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Profile Dashboard (for users with profile) -->
+  <div class="profile-dashboard" *ngIf="!isCheckingProfile && hasProfile">
+    <!-- Navbar -->
+    <nav class="dashboard-navbar">
+      <div class="navbar-left">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#3b82f6"/>
+            <path d="M2 17L12 22L22 17" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="logo-text">StageConnect AI</span>
+        </div>
+      </div>
+      <div class="navbar-right">
+        <div class="user-info">
+          <span class="user-name">{{ user?.first_name }} {{ user?.last_name }}</span>
+          <span class="user-role">{{ getRoleLabel() }}</span>
+        </div>
+        <button class="logout-btn" (click)="logout()">Déconnexion</button>
+      </div>
+    </nav>
+
+    <!-- Header Card -->
+    <div class="header-card">
+      <div class="banner"></div>
+      <div class="header-content">
+        <div class="avatar-section" id="profile-photo">
+          <div class="avatar">
+            <img *ngIf="profile?.photo_url || photoPreview" [src]="photoPreview || profile?.photo_url" class="avatar-image" alt="Profile photo">
+            <span class="avatar-initials" *ngIf="!profile?.photo_url && !photoPreview">{{ getInitials() }}</span>
+            <button class="camera-btn" (click)="triggerPhotoUpload()" [disabled]="isUploadingPhoto" title="Changer la photo">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="13" r="4" stroke="#fff" stroke-width="2"/>
+              </svg>
+            </button>
+            <input type="file" id="photo-input" (change)="onPhotoSelected($event)" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" style="display: none;">
+          </div>
+        </div>
+        <div class="user-details-wrapper">
+          <div class="user-details">
+            <h1>{{ user?.first_name }} {{ user?.last_name }}</h1>
+            <div class="role-badge">{{ getRoleLabel() }}</div>
+            <p class="email">{{ user?.email }}</p>
+            <p class="company-name" *ngIf="user?.role === 'entreprise' && profile?.nom_entreprise">
+              {{ profile.nom_entreprise }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-feedback error-message" role="alert" *ngIf="errorMessage">
+      {{ errorMessage }}
+        <button type="button" class="feedback-action" *ngIf="errorMessage.includes('Non authentifié')" (click)="logout()">Se reconnecter</button>
+      </div>
+      <div class="profile-feedback success-message" role="status" *ngIf="successMessage">
+        {{ successMessage }}
+      </div>
+
+      <section class="dashboard-overview" *ngIf="user?.role === 'etudiant'">
+        <div class="overview-heading">
+          <p class="overview-eyebrow">VOTRE ESPACE</p>
+          <h2>Construisez un profil qui vous ressemble</h2>
+          <p>Présentez votre parcours, vos projets et vos talents aux recruteurs.</p>
+        </div>
+        <div class="overview-stats">
+          <div class="overview-stat">
+            <span class="stat-value">{{ skills.length }}</span>
+            <span class="stat-label">Compétences</span>
+          </div>
+          <div class="overview-stat">
+            <span class="stat-value">{{ profile?.experiences?.length || 0 }}</span>
+            <span class="stat-label">Expériences</span>
+          </div>
+          <div class="overview-stat">
+            <span class="stat-value">{{ profile?.projects?.length || 0 }}</span>
+            <span class="stat-label">Projets</span>
+          </div>
+          <div class="overview-stat">
+            <span class="stat-value">{{ profile?.languages?.length || 0 }}</span>
+            <span class="stat-label">Langues</span>
+          </div>
+        </div>
+
+        <!-- AI Analysis Button -->
+        <div class="ai-analysis-section" style="margin-top: 32px;">
+          <button
+            class="btn-primary btn-analyze-profile"
+            (click)="analyzeProfile()"
+            [disabled]="isAnalyzing"
+          >
+            <span *ngIf="!isAnalyzing">🤖 Analyser mon profil avec l'IA</span>
+            <span *ngIf="isAnalyzing">⏳ Analyse en cours...</span>
+          </button>
+          <p class="ai-hint" style="margin-top: 8px; font-size: 0.9rem; color: #666;">
+            Obtenez une analyse personnalisée de votre profil avec des recommandations pour l'améliorer
+          </p>
+        </div>
+      </section>
+
+    <!-- Two-column grid -->
+    <div class="dashboard-grid">
+      <!-- Left column: Information -->
+      <div class="dashboard-left">
+        <div class="info-card" id="profile-information">
+          <div class="card-header">
+            <h2>Informations</h2>
+            <button class="edit-btn" *ngIf="!isEditMode" (click)="enableEditMode()">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Modifier
+            </button>
+          </div>
+
+          <!-- Error/Success messages -->
+          <div class="error-message" *ngIf="isEditMode && errorMessage">
+            {{ errorMessage }}
+          </div>
+          <div class="success-message" *ngIf="isEditMode && successMessage">
+            {{ successMessage }}
+          </div>
+
+          <!-- Read-only view -->
+          <div class="info-content" *ngIf="!isEditMode">
+            <!-- Student info -->
+            <div class="info-row" *ngIf="user?.role === 'etudiant'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M22 10v6M2 10l10-5 10 5-10 5z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M6 12v5c3 3 9 3 12 0v-5" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Formation</span>
+                <span class="info-value">{{ profile?.formation || '-' }}</span>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'etudiant' && profile?.telephone">
+              <div class="info-icon"><span class="info-symbol">☎</span></div>
+              <div class="info-text">
+                <span class="info-label">Téléphone</span>
+                <span class="info-value">{{ profile.telephone }}</span>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'etudiant' && profile?.ville">
+              <div class="info-icon"><span class="info-symbol">⌖</span></div>
+              <div class="info-text">
+                <span class="info-label">Ville</span>
+                <span class="info-value">{{ profile.ville }}</span>
+              </div>
+            </div>
+            <div class="student-bio" *ngIf="user?.role === 'etudiant' && profile?.bio">
+              <span class="info-label">À propos</span>
+              <p>{{ profile.bio }}</p>
+            </div>
+            <div class="social-links" *ngIf="user?.role === 'etudiant' && (profile?.linkedin || profile?.github)">
+              <a *ngIf="profile?.linkedin" [href]="profile.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+              <a *ngIf="profile?.github" [href]="profile.github" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'etudiant'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="#3b82f6" stroke-width="2"/>
+                  <path d="M12 6v6l4 2" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Spécialité</span>
+                <span class="info-value">{{ profile?.specialite || '-' }}</span>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'etudiant'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Niveau</span>
+                <span class="info-value">{{ profile?.niveau || '-' }}</span>
+              </div>
+            </div>
+            <!-- Company info -->
+            <div class="info-row" *ngIf="user?.role === 'entreprise'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="3" width="7" height="7" stroke="#3b82f6" stroke-width="2"/>
+                  <rect x="14" y="3" width="7" height="7" stroke="#3b82f6" stroke-width="2"/>
+                  <rect x="14" y="14" width="7" height="7" stroke="#3b82f6" stroke-width="2"/>
+                  <rect x="3" y="14" width="7" height="7" stroke="#3b82f6" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Nom de l'entreprise</span>
+                <span class="info-value">{{ profile?.nom_entreprise || '-' }}</span>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'entreprise'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Secteur d'activité</span>
+                <span class="info-value">{{ profile?.secteur_activite || '-' }}</span>
+              </div>
+            </div>
+            <div class="info-row" *ngIf="user?.role === 'entreprise'">
+              <div class="info-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="10" r="3" stroke="#3b82f6" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Adresse</span>
+                <span class="info-value">{{ profile?.adresse || '-' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit form -->
+          <div class="edit-form" *ngIf="isEditMode">
+            <!-- Student edit form -->
+            <div *ngIf="user?.role === 'etudiant'">
+              <div class="form-group">
+                <label for="edit-formation">Formation *</label>
+                <input
+                  type="text"
+                  id="edit-formation"
+                  [(ngModel)]="editStudentData.formation"
+                  name="edit-formation"
+                  required
+                  placeholder="Ex: Licence Informatique"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-specialite">Spécialité *</label>
+                <input
+                  type="text"
+                  id="edit-specialite"
+                  [(ngModel)]="editStudentData.specialite"
+                  name="edit-specialite"
+                  required
+                  placeholder="Ex: Développement Web"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-niveau">Niveau *</label>
+                <select
+                  id="edit-niveau"
+                  [(ngModel)]="editStudentData.niveau"
+                  name="edit-niveau"
+                  required
+                >
+                  <option value="">Sélectionnez votre niveau</option>
+                  <option value="L1">Licence 1</option>
+                  <option value="L2">Licence 2</option>
+                  <option value="L3">Licence 3</option>
+                  <option value="M1">Master 1</option>
+                  <option value="M2">Master 2</option>
+                  <option value="Doctorat">Doctorat</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-telephone">Téléphone</label>
+                <input
+                  type="text"
+                  id="edit-telephone"
+                  [(ngModel)]="editStudentData.telephone"
+                  name="edit-telephone"
+                  placeholder="Ex: 06 12 34 56 78"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-adresse">Adresse</label>
+                <textarea
+                  id="edit-adresse"
+                  [(ngModel)]="editStudentData.adresse"
+                  name="edit-adresse"
+                  rows="2"
+                  placeholder="Ex: 123 Rue de la Tech, 75001 Paris"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label for="edit-ville">Ville</label>
+                <input
+                  type="text"
+                  id="edit-ville"
+                  [(ngModel)]="editStudentData.ville"
+                  name="edit-ville"
+                  placeholder="Ex: Paris"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-bio">À propos</label>
+                <textarea
+                  id="edit-bio"
+                  [(ngModel)]="editStudentData.bio"
+                  name="edit-bio"
+                  rows="3"
+                  placeholder="Parlez-nous de vous..."
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label for="edit-linkedin">LinkedIn</label>
+                <input
+                  type="url"
+                  id="edit-linkedin"
+                  [(ngModel)]="editStudentData.linkedin"
+                  name="edit-linkedin"
+                  placeholder="https://linkedin.com/in/..."
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-github">GitHub</label>
+                <input
+                  type="url"
+                  id="edit-github"
+                  [(ngModel)]="editStudentData.github"
+                  name="edit-github"
+                  placeholder="https://github.com/..."
+                >
+              </div>
+
+              <section class="portfolio-editor" id="profile-experiences">
+                <div class="portfolio-editor-heading">
+                  <div>
+                    <h3>Expériences</h3>
+                    <p>Stages, emplois et expériences associatives.</p>
+                  </div>
+                  <button type="button" class="btn-add-entry" (click)="addExperience()">+ Ajouter</button>
+                </div>
+                <div class="entry-editor" *ngFor="let experience of editStudentData.experiences; let i = index">
+                  <button type="button" class="btn-remove-entry" (click)="removeExperience(i)" [attr.aria-label]="'Supprimer cette expérience'">×</button>
+                  <div class="form-group">
+                    <label [for]="'experience-poste-' + i">Poste</label>
+                    <input [id]="'experience-poste-' + i" [(ngModel)]="experience.poste" [name]="'experience-poste-' + i" placeholder="Ex. Développeuse web">
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'experience-entreprise-' + i">Entreprise / organisation</label>
+                    <input [id]="'experience-entreprise-' + i" [(ngModel)]="experience.entreprise" [name]="'experience-entreprise-' + i" placeholder="Nom de l'entreprise">
+                  </div>
+                  <div class="portfolio-field-grid">
+                    <div class="form-group">
+                      <label [for]="'experience-lieu-' + i">Lieu</label>
+                      <input [id]="'experience-lieu-' + i" [(ngModel)]="experience.lieu" [name]="'experience-lieu-' + i" placeholder="Ville">
+                    </div>
+                    <div class="form-group">
+                      <label [for]="'experience-debut-' + i">Date de début</label>
+                      <input type="month" [id]="'experience-debut-' + i" [(ngModel)]="experience.date_debut" [name]="'experience-debut-' + i">
+                    </div>
+                    <div class="form-group">
+                      <label [for]="'experience-fin-' + i">Date de fin</label>
+                      <input type="month" [id]="'experience-fin-' + i" [(ngModel)]="experience.date_fin" [name]="'experience-fin-' + i">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'experience-description-' + i">Description</label>
+                    <textarea [id]="'experience-description-' + i" [(ngModel)]="experience.description" [name]="'experience-description-' + i" rows="2" placeholder="Vos missions et réalisations"></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="portfolio-editor" id="profile-projects">
+                <div class="portfolio-editor-heading">
+                  <div>
+                    <h3>Projets</h3>
+                    <p>Mettez en avant vos réalisations.</p>
+                  </div>
+                  <button type="button" class="btn-add-entry" (click)="addProject()">+ Ajouter</button>
+                </div>
+                <div class="entry-editor" *ngFor="let project of editStudentData.projects; let i = index">
+                  <button type="button" class="btn-remove-entry" (click)="removeProject(i)" [attr.aria-label]="'Supprimer ce projet'">×</button>
+                  <div class="form-group">
+                    <label [for]="'project-name-' + i">Nom du projet</label>
+                    <input [id]="'project-name-' + i" [(ngModel)]="project.nom" [name]="'project-name-' + i" placeholder="Ex. Application de gestion de tâches">
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'project-technologies-' + i">Technologies utilisées</label>
+                    <input [id]="'project-technologies-' + i" [(ngModel)]="project.technologies" [name]="'project-technologies-' + i" placeholder="Angular, Laravel, MySQL">
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'project-link-' + i">Lien du projet</label>
+                    <input type="url" [id]="'project-link-' + i" [(ngModel)]="project.lien" [name]="'project-link-' + i" placeholder="https://...">
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'project-description-' + i">Description</label>
+                    <textarea [id]="'project-description-' + i" [(ngModel)]="project.description" [name]="'project-description-' + i" rows="2" placeholder="Présentez le projet"></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <section class="portfolio-editor" id="profile-languages">
+                <div class="portfolio-editor-heading">
+                  <div>
+                    <h3>Langues</h3>
+                    <p>Précisez les langues que vous maîtrisez.</p>
+                  </div>
+                  <button type="button" class="btn-add-entry" (click)="addLanguage()">+ Ajouter</button>
+                </div>
+                <div class="language-editor" *ngFor="let language of editStudentData.languages; let i = index">
+                  <div class="form-group">
+                    <label [for]="'language-name-' + i">Langue</label>
+                    <input [id]="'language-name-' + i" [(ngModel)]="language.nom" [name]="'language-name-' + i" placeholder="Ex. Français">
+                  </div>
+                  <div class="form-group">
+                    <label [for]="'language-level-' + i">Niveau</label>
+                    <select [id]="'language-level-' + i" [(ngModel)]="language.niveau" [name]="'language-level-' + i">
+                      <option value="Débutant">Débutant</option>
+                      <option value="Intermédiaire">Intermédiaire</option>
+                      <option value="Avancé">Avancé</option>
+                      <option value="Bilingue">Bilingue</option>
+                    </select>
+                  </div>
+                  <button type="button" class="btn-remove-entry" (click)="removeLanguage(i)" [attr.aria-label]="'Supprimer cette langue'">×</button>
+                </div>
+              </section>
+            </div>
+
+            <!-- Company edit form -->
+            <div *ngIf="user?.role === 'entreprise'">
+              <div class="form-group">
+                <label for="edit-nom-entreprise">Nom de l'entreprise *</label>
+                <input
+                  type="text"
+                  id="edit-nom-entreprise"
+                  [(ngModel)]="editCompanyData.nom_entreprise"
+                  name="edit-nom-entreprise"
+                  required
+                  placeholder="Ex: Tech Solutions SAS"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-secteur">Secteur d'activité *</label>
+                <input
+                  type="text"
+                  id="edit-secteur"
+                  [(ngModel)]="editCompanyData.secteur_activite"
+                  name="edit-secteur"
+                  required
+                  placeholder="Ex: Technologies de l'information"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-adresse">Adresse *</label>
+                <textarea
+                  id="edit-adresse"
+                  [(ngModel)]="editCompanyData.adresse"
+                  name="edit-adresse"
+                  required
+                  rows="2"
+                  placeholder="Ex: 123 Rue de la Tech, 75001 Paris"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label for="edit-ville">Ville</label>
+                <input
+                  type="text"
+                  id="edit-ville"
+                  [(ngModel)]="editCompanyData.ville"
+                  name="edit-ville"
+                  placeholder="Ex: Paris"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-description">Description *</label>
+                <textarea
+                  id="edit-description"
+                  [(ngModel)]="editCompanyData.description"
+                  name="edit-description"
+                  required
+                  rows="4"
+                  placeholder="Décrivez votre entreprise..."
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label for="edit-telephone">Téléphone</label>
+                <input
+                  type="text"
+                  id="edit-telephone"
+                  [(ngModel)]="editCompanyData.telephone"
+                  name="edit-telephone"
+                  placeholder="Ex: 01 23 45 67 89"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-site-web">Site web</label>
+                <input
+                  type="url"
+                  id="edit-site-web"
+                  [(ngModel)]="editCompanyData.site_web"
+                  name="edit-site-web"
+                  placeholder="https://www.example.com"
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-linkedin">LinkedIn</label>
+                <input
+                  type="url"
+                  id="edit-linkedin"
+                  [(ngModel)]="editCompanyData.linkedin"
+                  name="edit-linkedin"
+                  placeholder="https://linkedin.com/company/..."
+                >
+              </div>
+            </div>
+
+            <div class="edit-actions">
+              <button type="button" class="btn-cancel" (click)="cancelEdit()" [disabled]="isLoading">
+                Annuler
+              </button>
+              <button type="button" class="btn-save" (click)="onUpdate()" [disabled]="isLoading">
+                <span *ngIf="!isLoading">Enregistrer</span>
+                <span *ngIf="isLoading">Enregistrement...</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Right column: Skills and CV / About -->
+      <div class="dashboard-right">
+        <!-- Skills card (for students) -->
+        <div class="card skills-card" id="skills" *ngIf="user?.role === 'etudiant'">
+          <div class="card-header">
+            <h2>Compétences</h2>
+          </div>
+          <div class="skills-content">
+            <p class="skills-intro">Ajoutez vos compétences et indiquez votre niveau de maîtrise.</p>
+            <div class="skill-form">
+              <div class="skill-field">
+                <label for="skill-name">Nom de la compétence</label>
+                <input
+                  id="skill-name"
+                  type="text"
+                  [(ngModel)]="newSkill.name"
+                  name="skillName"
+                  placeholder="Ex. JavaScript, gestion de projet..."
+                  class="skill-input"
+                  (keyup.enter)="addSkill()"
+                >
+              </div>
+              <div class="skill-field">
+                <label for="skill-level">Niveau de maîtrise</label>
+                <select id="skill-level" [(ngModel)]="newSkill.level" name="skillLevel" class="skill-select">
+                  <option value="débutant">Débutant</option>
+                  <option value="intermédiaire">Intermédiaire</option>
+                  <option value="avancé">Avancé</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="btn-primary btn-add-skill"
+                (click)="addSkill()"
+                [disabled]="isAddingSkill || !newSkill.name.trim()"
+              >
+                <span *ngIf="!isAddingSkill">Ajouter</span>
+                <span *ngIf="isAddingSkill">Ajout...</span>
+              </button>
+            </div>
+            <div class="skills-list" *ngIf="skills.length > 0">
+              <div class="skill-item" *ngFor="let skill of skills">
+                <ng-container *ngIf="editingSkillId !== skill.id; else skillEditor">
+                  <span class="skill-name">{{ skill.name }}</span>
+                  <span class="skill-level">{{ skill.level }}</span>
+                  <div class="skill-actions">
+                    <button
+                      type="button"
+                      class="btn-edit btn-sm"
+                      (click)="startEditingSkill(skill)"
+                      [attr.aria-label]="'Modifier ' + skill.name"
+                    >Modifier</button>
+                    <button
+                      type="button"
+                      class="btn-delete"
+                      (click)="deleteSkill(skill.id)"
+                      [attr.aria-label]="'Supprimer ' + skill.name"
+                    >×</button>
+                  </div>
+                </ng-container>
+                <ng-template #skillEditor>
+                  <div class="skill-edit-form">
+                    <input
+                      type="text"
+                      [(ngModel)]="editSkillData.name"
+                      [name]="'edit-skill-name-' + skill.id"
+                      aria-label="Nom de la compétence"
+                    >
+                    <select
+                      [(ngModel)]="editSkillData.level"
+                      [name]="'edit-skill-level-' + skill.id"
+                      aria-label="Niveau de maîtrise"
+                    >
+                      <option value="débutant">Débutant</option>
+                      <option value="intermédiaire">Intermédiaire</option>
+                      <option value="avancé">Avancé</option>
+                    </select>
+                    <button
+                      type="button"
+                      class="btn-edit btn-sm"
+                      (click)="saveSkillEdit(skill.id)"
+                      [disabled]="isUpdatingSkillId === skill.id"
+                    >{{ isUpdatingSkillId === skill.id ? 'Enregistrement…' : 'Enregistrer' }}</button>
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      (click)="cancelSkillEdit()"
+                      [disabled]="isUpdatingSkillId === skill.id"
+                    >Annuler</button>
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+            <p class="empty-skills" *ngIf="skills.length === 0 && !isLoadingSkills">Aucune compétence ajoutée</p>
+          </div>
+        </div>
+
+        <!-- CV card (for students) -->
+        <div class="card cv-card" id="cv" style="margin-top: 24px;" *ngIf="user?.role === 'etudiant'">
+          <div class="card-header">
+            <h2>CV</h2>
+          </div>
+          <div class="cv-content">
+            <div class="cv-upload">
+              <input
+                type="file"
+                id="cv-input"
+                (change)="onCvSelected($event)"
+                accept=".pdf,application/pdf"
+                style="display: none;"
+              >
+              <button
+                class="btn-secondary"
+                (click)="triggerCvUpload()"
+                [disabled]="isUploadingCv"
+              >
+                <span *ngIf="!isUploadingCv">Télécharger mon CV (PDF)</span>
+                <span *ngIf="isUploadingCv">Téléchargement...</span>
+              </button>
+              <p class="cv-hint">Max 5MB, format PDF uniquement</p>
+            </div>
+            <div class="cv-list" *ngIf="cvs.length > 0">
+              <div class="cv-item" *ngFor="let cv of cvs">
+                <span class="cv-name">{{ cv.file_name }}</span>
+                <div class="cv-actions">
+                  <a [href]="cv.download_url" target="_blank" class="btn-view">Voir</a>
+                  <button class="btn-delete" (click)="deleteCv(cv.id)" title="Supprimer">×</button>
+                </div>
+              </div>
+            </div>
+
+            <p class="empty-cv" *ngIf="cvs.length === 0 && !isLoadingCv">Aucun CV ajouté</p>
+          </div>
+        </div>
+
+        <section class="student-portfolio" id="portfolio" *ngIf="user?.role === 'etudiant'">
+                <div class="portfolio-section-heading">
+                  <div>
+                    <p class="overview-eyebrow">VOTRE PARCOURS</p>
+                    <h2>Expériences, projets & langues</h2>
+                  </div>
+                  <button class="edit-btn" *ngIf="!isEditMode" (click)="enableEditMode()">Modifier mon parcours</button>
+                </div>
+                <div class="portfolio-display-grid">
+                  <article class="portfolio-card">
+                    <div class="portfolio-card-heading"><span class="portfolio-icon">↗</span><h3>Expériences</h3></div>
+                    <ng-container *ngIf="profile?.experiences?.length; else emptyExperiences">
+                      <div class="portfolio-entry" *ngFor="let experience of profile.experiences">
+                        <h4>{{ experience.poste }}</h4>
+                        <p class="portfolio-meta">{{ experience.entreprise }}<span *ngIf="experience.lieu"> · {{ experience.lieu }}</span></p>
+                        <p class="portfolio-meta">{{ experience.date_debut }} – {{ experience.date_fin || 'Aujourd’hui' }}</p>
+                        <p class="portfolio-description" *ngIf="experience.description">{{ experience.description }}</p>
+                      </div>
+                    </ng-container>
+                    <ng-template #emptyExperiences><p class="portfolio-empty">Ajoutez vos stages et expériences professionnelles.</p></ng-template>
+                  </article>
+
+                  <article class="portfolio-card">
+                    <div class="portfolio-card-heading"><span class="portfolio-icon">✳</span><h3>Projets</h3></div>
+                    <ng-container *ngIf="profile?.projects?.length; else emptyProjects">
+                      <div class="portfolio-entry" *ngFor="let project of profile.projects">
+                        <h4>{{ project.nom }}</h4>
+                        <p class="portfolio-meta" *ngIf="project.technologies">{{ project.technologies }}</p>
+                        <p class="portfolio-description" *ngIf="project.description">{{ project.description }}</p>
+                        <a *ngIf="project.lien" class="portfolio-link" [href]="project.lien" target="_blank" rel="noopener noreferrer">Voir le projet ↗</a>
+                      </div>
+                    </ng-container>
+                    <ng-template #emptyProjects><p class="portfolio-empty">Partagez vos projets personnels ou universitaires.</p></ng-template>
+                  </article>
+
+                  <article class="portfolio-card">
+                    <div class="portfolio-card-heading"><span class="portfolio-icon">文</span><h3>Langues</h3></div>
+                    <ng-container *ngIf="profile?.languages?.length; else emptyLanguages">
+                      <div class="language-display" *ngFor="let language of profile.languages">
+                        <span>{{ language.nom }}</span>
+                        <span class="language-level">{{ language.niveau }}</span>
+                      </div>
+                    </ng-container>
+                    <ng-template #emptyLanguages><p class="portfolio-empty">Indiquez les langues que vous maîtrisez.</p></ng-template>
+                  </article>
+                </div>
+        </section>
+
+        <!-- AI Analysis Results Modal -->
+        <div class="ai-analysis-modal" *ngIf="showAnalysis && analysis" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+          <div class="ai-analysis-content" style="background: white; border-radius: 12px; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 32px; margin: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div class="ai-analysis-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+              <h2 style="margin: 0; color: #333;">🤖 Analyse de votre profil</h2>
+              <button (click)="closeAnalysis()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">×</button>
+            </div>
+
+            <div class="ai-analysis-body">
+              <!-- Resume -->
+              <div class="ai-section" style="margin-bottom: 24px;">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">📝 Résumé du profil</h3>
+                <p style="line-height: 1.6; color: #555;">{{ analysis.resume }}</p>
+              </div>
+
+              <!-- Points forts -->
+              <div class="ai-section" style="margin-bottom: 24px;" *ngIf="analysis.points_forts && analysis.points_forts.length > 0">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">💪 Points forts</h3>
+                <ul style="list-style: none; padding: 0;">
+                  <li *ngFor="let point of analysis.points_forts" style="padding: 8px 0; padding-left: 24px; position: relative; color: #555;">
+                    <span style="position: absolute; left: 0; color: #10b981;">✓</span>
+                    {{ point }}
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Compétences maîtrisées -->
+              <div class="ai-section" style="margin-bottom: 24px;" *ngIf="analysis.competences_maitrisees && analysis.competences_maitrisees.length > 0">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">✅ Compétences maîtrisées</h3>
+                <ul style="list-style: none; padding: 0;">
+                  <li *ngFor="let skill of analysis.competences_maitrisees" style="padding: 8px 0; padding-left: 24px; position: relative; color: #555;">
+                    <span style="position: absolute; left: 0; color: #10b981;">✓</span>
+                    {{ skill }}
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Compétences à améliorer -->
+              <div class="ai-section" style="margin-bottom: 24px;" *ngIf="analysis.competences_a_ameliorer && analysis.competences_a_ameliorer.length > 0">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">📈 Compétences à améliorer</h3>
+                <ul style="list-style: none; padding: 0;">
+                  <li *ngFor="let skill of analysis.competences_a_ameliorer" style="padding: 8px 0; padding-left: 24px; position: relative; color: #555;">
+                    <span style="position: absolute; left: 0; color: #f59e0b;">→</span>
+                    {{ skill }}
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Recommandations -->
+              <div class="ai-section" style="margin-bottom: 24px;" *ngIf="analysis.recommandations && analysis.recommandations.length > 0">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">💡 Recommandations</h3>
+                <ul style="list-style: none; padding: 0;">
+                  <li *ngFor="let rec of analysis.recommandations" style="padding: 8px 0; padding-left: 24px; position: relative; color: #555;">
+                    <span style="position: absolute; left: 0; color: #8b5cf6;">•</span>
+                    {{ rec }}
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Raw content fallback -->
+              <div class="ai-section" *ngIf="analysis.raw_content">
+                <h3 style="color: #2563eb; margin-bottom: 12px; font-size: 1.1rem;">Analyse détaillée</h3>
+                <p style="white-space: pre-wrap; line-height: 1.6; color: #555;">{{ analysis.raw_content }}</p>
+              </div>
+            </div>
+
+            <div class="ai-analysis-footer" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; text-align: right;">
+              <button
+                (click)="closeAnalysis()"
+                style="background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 1rem;"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- About card (for companies) -->
+        <div class="card about-card" *ngIf="user?.role === 'entreprise'">
+          <div class="card-header">
+            <h2>À propos</h2>
+          </div>
+          <div class="about-content">
+            <p>{{ profile?.description || 'Aucune description disponible' }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+    </div>
+  </main>
+</div>

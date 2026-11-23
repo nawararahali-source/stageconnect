@@ -1,0 +1,701 @@
+<div class="dashboard-layout">
+  <!-- Sidebar -->
+  <app-sidebar
+    [isCollapsed]="isSidebarCollapsed"
+    [userRole]="isStudent ? 'student' : 'company'"
+    [userName]="fullName"
+    [userAvatar]="profile?.photo_url || ''"
+    (toggleCollapse)="onSidebarToggle()"
+    (logout)="onSidebarLogout()"
+  ></app-sidebar>
+
+  <!-- Main Content -->
+  <main class="dashboard-main" [class.sidebar-collapsed]="isSidebarCollapsed">
+    <!-- Notification Toast -->
+    <app-notification-toast
+      [show]="showNotification"
+      [type]="notificationType"
+      [title]="notificationTitle"
+      [message]="notificationMessage"
+      (close)="onNotificationClose()"
+    ></app-notification-toast>
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" type="button" (click)="onSidebarToggle()" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div class="breadcrumb">
+          <span class="breadcrumb-item">Espace personnel</span>
+          <span class="breadcrumb-separator">/</span>
+          <span class="breadcrumb-item active">Tableau de bord</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <a class="account-chip" routerLink="/profile">
+          <img *ngIf="profile?.photo_url" [src]="profile?.photo_url" alt="" class="account-avatar">
+          <span class="account-avatar initials" *ngIf="!profile?.photo_url">{{ initials }}</span>
+          <span class="account-name">{{ fullName }}</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="dashboard-content">
+      <div class="error-banner" role="alert" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <!-- Welcome Banner -->
+      <section class="welcome-banner animate-fade-in">
+        <div class="welcome-content">
+          <h1>Bonjour{{ user?.first_name ? ', ' + user?.first_name : '' }} <span>✦</span></h1>
+          <p>Retrouvez ici votre profil, vos compétences, votre CV et tout votre parcours.</p>
+          <a class="btn btn-primary" routerLink="/profile">
+            {{ isLoadingProfile ? 'Chargement...' : (hasProfile ? 'Gérer mon profil' : 'Créer mon profil') }}
+          </a>
+        </div>
+        <div class="welcome-visual">
+          <div class="visual-orbit orbit-1"></div>
+          <div class="visual-orbit orbit-2"></div>
+          <div class="visual-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="profile-completion-card" *ngIf="isStudent && !isLoadingProfile" aria-labelledby="dashboard-profile-completion-title">
+        <div class="profile-completion-heading">
+          <div>
+            <h2 id="dashboard-profile-completion-title">Profil complété à {{ profileCompletionPercentage }} %</h2>
+            <p>Un profil détaillé aide les entreprises à mieux découvrir votre parcours.</p>
+          </div>
+          <a class="btn btn-primary" routerLink="/profile">Compléter mon profil</a>
+        </div>
+        <div class="profile-completion-track" role="progressbar"
+          [attr.aria-valuenow]="profileCompletionPercentage" aria-valuemin="0" aria-valuemax="100"
+          [attr.aria-label]="'Profil complété à ' + profileCompletionPercentage + ' %'">
+          <span [style.width.%]="profileCompletionPercentage"></span>
+        </div>
+        <div class="profile-completion-tips" *ngIf="profileMissingItems.length">
+          <strong>Pour améliorer votre profil :</strong>
+          <div class="profile-completion-links">
+            <a *ngFor="let item of profileMissingItems"
+              [routerLink]="['/profile']"
+              [fragment]="getProfileCompletionFragment(item)">
+              {{ item }} →
+            </a>
+          </div>
+        </div>
+        <p class="profile-completion-complete" *ngIf="!profileMissingItems.length">
+          Votre profil étudiant est complet.
+        </p>
+      </section>
+
+      <!-- Stats Grid -->
+      <section class="stats-grid animate-slide-up">
+        <app-stat-card
+          label="Profil"
+          [value]="hasProfile ? 'Complété' : 'À créer'"
+          icon="user"
+          color="primary"
+          [loading]="isLoadingProfile"
+        ></app-stat-card>
+        
+        <app-stat-card
+          *ngIf="isStudent"
+          label="Compétences"
+          [value]="skills.length"
+          icon="zap"
+          color="secondary"
+          [loading]="isLoadingSkills"
+        ></app-stat-card>
+        
+        <app-stat-card
+          *ngIf="isStudent"
+          label="Éléments du parcours"
+          [value]="portfolioCount"
+          icon="briefcase"
+          color="warning"
+          [loading]="isLoadingProfile"
+        ></app-stat-card>
+        
+        <app-stat-card
+          *ngIf="isStudent"
+          label="CV"
+          [value]="cvs.length"
+          icon="file-text"
+          color="success"
+          [loading]="isLoadingCvs"
+        ></app-stat-card>
+
+        <app-stat-card
+          *ngIf="isStudent"
+          label="Candidatures envoyées"
+          [value]="applications.length"
+          icon="send"
+          color="secondary"
+          [loading]="isLoadingApplications"
+        ></app-stat-card>
+        
+        <app-stat-card
+          *ngIf="isCompany"
+          label="Offres de stage"
+          [value]="offers.length"
+          icon="briefcase"
+          color="primary"
+          [loading]="isLoadingOffers"
+        ></app-stat-card>
+        
+        <app-stat-card
+          *ngIf="isCompany"
+          label="Candidatures reçues"
+          [value]="applications.length"
+          icon="users"
+          color="secondary"
+          [loading]="isLoadingApplications"
+        ></app-stat-card>
+
+        <app-stat-card
+          *ngIf="isCompany"
+          label="En attente"
+          [value]="pendingApplicationsCount"
+          icon="users"
+          color="warning"
+          [loading]="isLoadingApplications"
+        ></app-stat-card>
+
+        <app-stat-card
+          *ngIf="isCompany"
+          label="Acceptées"
+          [value]="acceptedApplicationsCount"
+          icon="users"
+          color="success"
+          [loading]="isLoadingApplications"
+        ></app-stat-card>
+      </section>
+
+      <section class="dashboard-analytics" *ngIf="isCompany" aria-labelledby="company-analytics-title">
+        <div class="analytics-heading">
+          <div>
+            <span class="panel-badge">ANALYSES</span>
+            <h2 id="company-analytics-title">Statistiques des candidatures</h2>
+          </div>
+        </div>
+        <p class="analytics-feedback" *ngIf="isLoadingDashboardStats">Chargement des statistiques…</p>
+        <p class="analytics-error" role="alert" *ngIf="dashboardStatsError">{{ dashboardStatsError }}</p>
+        <div class="analytics-empty" *ngIf="!isLoadingDashboardStats && !dashboardStatsError && companyStats && !hasCompanyChartData">
+          <strong>Aucune candidature à analyser pour le moment</strong>
+          <p>Les graphiques apparaîtront dès que des étudiants postuleront à vos offres.</p>
+        </div>
+        <div class="analytics-grid" *ngIf="!isLoadingDashboardStats && hasCompanyChartData">
+          <article class="analytics-card">
+            <h3>Candidatures par statut</h3>
+            <div class="analytics-chart"><canvas baseChart [type]="'doughnut'" [data]="companyStatusChartData" [options]="statusChartOptions"></canvas></div>
+          </article>
+          <article class="analytics-card">
+            <h3>Scores de compatibilité</h3>
+            <div class="analytics-chart"><canvas baseChart [type]="'bar'" [data]="scoreDistributionChartData" [options]="barChartOptions"></canvas></div>
+          </article>
+          <article class="analytics-card analytics-card-wide">
+            <h3>Candidatures par offre</h3>
+            <div class="analytics-chart analytics-chart-wide"><canvas baseChart [type]="'bar'" [data]="offerApplicationsChartData" [options]="barChartOptions"></canvas></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="dashboard-analytics student-analytics" *ngIf="isStudent" aria-labelledby="student-analytics-title">
+        <div class="analytics-heading">
+          <div>
+            <span class="panel-badge">ANALYSES</span>
+            <h2 id="student-analytics-title">Mes candidatures</h2>
+          </div>
+        </div>
+        <p class="analytics-feedback" *ngIf="isLoadingDashboardStats">Chargement des statistiques…</p>
+        <p class="analytics-error" role="alert" *ngIf="dashboardStatsError">{{ dashboardStatsError }}</p>
+        <div class="analytics-empty" *ngIf="!isLoadingDashboardStats && !dashboardStatsError && studentStats && !hasStudentChartData">
+          <strong>Vous n’avez pas encore envoyé de candidature</strong>
+          <p>Postulez à une offre pour voir ici le suivi de vos candidatures.</p>
+        </div>
+        <article class="analytics-card student-status-card" *ngIf="!isLoadingDashboardStats && hasStudentChartData">
+          <h3>Répartition par statut</h3>
+          <div class="analytics-chart"><canvas baseChart [type]="'doughnut'" [data]="studentStatusChartData" [options]="statusChartOptions"></canvas></div>
+        </article>
+      </section>
+
+      <!-- Student Sections -->
+      <ng-container *ngIf="isStudent">
+        <!-- Student Offers Section -->
+        <section class="panel" id="student-offers">
+          <div class="panel-header">
+            <div>
+              <span class="panel-badge">ÉTUDIANT</span>
+              <h2>Offres de stage disponibles</h2>
+            </div>
+          </div>
+
+          <div class="offer-filters" *ngIf="offers.length">
+            <label class="offer-search">
+              <span>Rechercher une offre</span>
+              <input
+                type="search"
+                [(ngModel)]="offerSearchTerm"
+                placeholder="Titre, domaine, ville ou compétence"
+              >
+            </label>
+            <label class="offer-work-mode-filter">
+              <span>Mode de travail</span>
+              <select [(ngModel)]="offerWorkMode">
+                <option value="all">Tous les modes</option>
+                <option value="onsite">Présentiel</option>
+                <option value="hybrid">Hybride</option>
+                <option value="remote">À distance</option>
+              </select>
+            </label>
+          </div>
+          
+          <div class="offer-feedback success-feedback" *ngIf="applicationMessage">{{ applicationMessage }}</div>
+          <div class="offer-feedback error-feedback" *ngIf="applicationErrorMessage">{{ applicationErrorMessage }}</div>
+          
+          <p class="loading-line" *ngIf="isLoadingOffers">Chargement des offres…</p>
+          
+          <div class="offers-list" *ngIf="!isLoadingOffers && filteredStudentOffers.length">
+            <div class="offer-card" *ngFor="let offer of filteredStudentOffers">
+              <div class="offer-card-top">
+                <div>
+                  <span class="offer-domain">{{ offer.domain }}</span>
+                  <h3>{{ offer.title }}</h3>
+                </div>
+                <span class="offer-status" [class.closed]="offer.status === 'closed'">
+                  {{ offer.status === 'open' ? 'Ouverte' : 'Clôturée' }}
+                </span>
+              </div>
+              <p class="offer-description">{{ offer.description }}</p>
+              <div class="offer-meta">
+                <span>◷ {{ offer.duration }}</span>
+                <span>⌖ {{ offer.location }}</span>
+                <span>▣ {{ offer.available_positions }} place{{ offer.available_positions > 1 ? 's' : '' }} disponible{{ offer.available_positions > 1 ? 's' : '' }}</span>
+                <span>{{ offer.work_mode === 'onsite' ? 'Présentiel' : (offer.work_mode === 'hybrid' ? 'Hybride' : 'À distance') }}</span>
+                <span *ngIf="offer.deadline">Date limite : {{ offer.deadline | date:'mediumDate' }}</span>
+              </div>
+              <div class="offer-skills" *ngIf="offer.required_skills?.length">
+                <span *ngFor="let skill of offer.required_skills" class="skill-tag">{{ skill }}</span>
+              </div>
+              <div class="offer-actions">
+                <button
+                  class="btn btn-outline"
+                  type="button"
+                  [attr.aria-expanded]="expandedOfferForDetails === offer.id"
+                  (click)="toggleOfferDetails(offer)">
+                  {{ expandedOfferForDetails === offer.id ? 'Masquer les détails' : 'Détails et lettre de motivation' }}
+                </button>
+                <button 
+                  class="btn btn-primary"
+                  type="button"
+                  [disabled]="hasApplied(offer.id) || offer.available_positions <= 0 || isApplyingOfferId !== null"
+                  (click)="applyToOffer(offer)">
+                  {{ isApplyingOfferId === offer.id ? 'Envoi...' : (hasApplied(offer.id) ? 'Déjà postulé' : (offer.available_positions <= 0 ? 'Complet' : 'Postuler')) }}
+                </button>
+              </div>
+              <section class="offer-detail-panel" *ngIf="expandedOfferForDetails === offer.id"
+                [attr.aria-label]="'Détail de l’offre ' + offer.title">
+                <div class="offer-detail-heading">
+                  <h4>Détail de l’offre</h4>
+                  <p *ngIf="offer.company">
+                    Entreprise : {{ offer.company.first_name }} {{ offer.company.last_name }}
+                  </p>
+                </div>
+                <p class="offer-detail-description">{{ offer.description }}</p>
+                <div class="offer-detail-skills" *ngIf="offer.required_skills?.length">
+                  <strong>Compétences demandées :</strong>
+                  <span *ngFor="let skill of offer.required_skills" class="skill-tag">{{ skill }}</span>
+                </div>
+                <div class="cover-letter-section">
+                  <h4>Lettre de motivation</h4>
+                  <button
+                    *ngIf="!coverLetter"
+                    class="btn btn-primary"
+                    type="button"
+                    [disabled]="isGeneratingCoverLetter"
+                    (click)="generateCoverLetter(offer)">
+                    {{ isGeneratingCoverLetter ? 'Génération en cours…' : 'Générer ma lettre de motivation par IA' }}
+                  </button>
+                  <p class="cover-letter-loading" role="status" *ngIf="isGeneratingCoverLetter">
+                    Gemini rédige votre lettre à partir de votre profil et de cette offre…
+                  </p>
+                  <p class="cover-letter-error" role="alert" *ngIf="coverLetterErrorMessage">
+                    {{ coverLetterErrorMessage }}
+                  </p>
+                  <ng-container *ngIf="coverLetter">
+                    <label class="cover-letter-label" [for]="'cover-letter-' + offer.id">
+                      Modifiez votre lettre avant de la copier ou de l’utiliser.
+                    </label>
+                    <textarea
+                      class="cover-letter-editor"
+                      [id]="'cover-letter-' + offer.id"
+                      [(ngModel)]="coverLetter"
+                      rows="12"
+                      aria-label="Lettre de motivation modifiable">
+                    </textarea>
+                    <div class="cover-letter-actions">
+                      <button class="btn btn-outline" type="button" (click)="copyCoverLetter()">
+                        {{ coverLetterCopied ? 'Copiée' : 'Copier' }}
+                      </button>
+                      <button
+                        class="btn btn-secondary"
+                        type="button"
+                        [disabled]="isGeneratingCoverLetter"
+                        (click)="generateCoverLetter(offer)">
+                        Régénérer
+                      </button>
+                    </div>
+                  </ng-container>
+                </div>
+              </section>
+            </div>
+          </div>
+          
+          <div class="empty-state" *ngIf="!isLoadingOffers && !offers.length">
+            <span class="empty-icon">▣</span>
+            <strong>Aucune offre disponible pour le moment</strong>
+            <p>Les nouvelles offres de stage apparaîtront ici.</p>
+          </div>
+          <div class="empty-state" *ngIf="!isLoadingOffers && offers.length && !filteredStudentOffers.length">
+            <span class="empty-icon">⌕</span>
+            <strong>Aucune offre ne correspond à votre recherche</strong>
+            <p>Modifiez les mots-clés ou le mode de travail sélectionné.</p>
+          </div>
+        </section>
+
+        <!-- Student Applications Section -->
+        <section class="panel" id="student-applications">
+          <div class="panel-header">
+            <div>
+              <span class="panel-badge">ÉTUDIANT</span>
+              <h2>Mes candidatures</h2>
+            </div>
+          </div>
+          
+          <p class="loading-line" *ngIf="isLoadingApplications">Chargement de vos candidatures…</p>
+          
+          <div class="applications-list" *ngIf="!isLoadingApplications && applications.length">
+            <div class="application-card" *ngFor="let application of applications">
+              <div class="application-card-header">
+                <div>
+                  <span class="offer-domain">{{ application.internshipOffer?.domain }}</span>
+                  <h3>{{ application.internshipOffer?.title || 'Offre de stage' }}</h3>
+                  <p class="application-company" *ngIf="application.internshipOffer?.company">
+                    {{ application.internshipOffer?.company?.first_name }} {{ application.internshipOffer?.company?.last_name }}
+                  </p>
+                </div>
+                <span class="application-status" [ngClass]="'status-' + application.status">
+                  {{ application.status === 'pending' ? 'En attente' : (application.status === 'accepted' ? 'Acceptée' : 'Refusée') }}
+                </span>
+              </div>
+              <p class="application-date" *ngIf="application.applied_at">Candidature envoyée le {{ application.applied_at | date:'mediumDate' }}</p>
+              <div class="application-actions">
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  [disabled]="openingConversationId !== null"
+                  (click)="openApplicationConversation(application)">
+                  {{ openingConversationId === application.id ? 'Ouverture…' : 'Envoyer un message' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="empty-state" *ngIf="!isLoadingApplications && !applications.length">
+            <span class="empty-icon">▤</span>
+            <strong>Vous n'avez pas encore postulé</strong>
+            <p>Consultez les offres disponibles et envoyez votre première candidature.</p>
+            <a class="btn btn-outline" href="#student-offers">Voir les offres</a>
+          </div>
+        </section>
+      </ng-container>
+
+      <!-- Company Sections -->
+      <ng-container *ngIf="isCompany">
+        <!-- Company Offers Section -->
+        <section class="panel" id="offers">
+          <div class="panel-header">
+            <div>
+              <span class="panel-badge">ENTREPRISE</span>
+              <h2>Mes offres de stage</h2>
+            </div>
+            <button class="btn btn-primary" type="button" *ngIf="!isOfferFormOpen" (click)="openOfferForm()">
+              + Ajouter une offre
+            </button>
+          </div>
+
+          <div class="offer-feedback success-feedback" *ngIf="offerMessage">{{ offerMessage }}</div>
+          <div class="offer-feedback error-feedback" *ngIf="offerErrorMessage">{{ offerErrorMessage }}</div>
+          
+          <p class="loading-line" *ngIf="isLoadingOffers">Chargement des offres…</p>
+
+          <!-- Offer Form -->
+          <form class="offer-form" *ngIf="isOfferFormOpen" #offerForm="ngForm" (ngSubmit)="saveOffer()">
+            <h3>{{ offerFormTitle }}</h3>
+            <div class="offer-form-grid">
+              <label>
+                <span>Titre du stage *</span>
+                <input type="text" name="title" [(ngModel)]="offerData.title" required maxlength="255" placeholder="Ex. Développeur web">
+              </label>
+              <label>
+                <span>Domaine *</span>
+                <input type="text" name="domain" [(ngModel)]="offerData.domain" required maxlength="255" placeholder="Ex. Informatique">
+              </label>
+              <label>
+                <span>Durée *</span>
+                <input type="text" name="duration" [(ngModel)]="offerData.duration" required maxlength="100" placeholder="Ex. 3 mois">
+              </label>
+              <label>
+                <span>Ville / lieu *</span>
+                <input type="text" name="location" [(ngModel)]="offerData.location" required maxlength="255" placeholder="Ex. Tunis">
+              </label>
+              <label>
+                <span>Mode de travail *</span>
+                <select name="work_mode" [(ngModel)]="offerData.work_mode" required>
+                  <option value="onsite">Présentiel</option>
+                  <option value="hybrid">Hybride</option>
+                  <option value="remote">À distance</option>
+                </select>
+              </label>
+              <label>
+                <span>Nombre total de places *</span>
+                <input type="number" name="positions" [(ngModel)]="offerData.positions" required min="1" max="500">
+              </label>
+              <label class="offer-wide-field">
+                <span>Compétences recherchées (séparées par des virgules)</span>
+                <input type="text" name="required_skills_text" [(ngModel)]="requiredSkillsInput" placeholder="Ex. PHP, Laravel, SQL">
+              </label>
+              <label>
+                <span>Date limite de candidature</span>
+                <input type="date" name="deadline" [(ngModel)]="offerData.deadline" [min]="minimumDeadline">
+                <small class="offer-field-hint" *ngIf="offerData.deadline && offerData.deadline < minimumDeadline">
+                  Choisissez aujourd'hui ou une date ultérieure.
+                </small>
+              </label>
+              <label>
+                <span>État de l'offre</span>
+                <select name="status" [(ngModel)]="offerData.status">
+                  <option value="open">Ouverte</option>
+                  <option value="closed">Clôturée</option>
+                </select>
+              </label>
+              <label class="offer-wide-field">
+                <span>Description du stage *</span>
+                <textarea name="description" [(ngModel)]="offerData.description" required maxlength="5000" rows="4" placeholder="Missions, profil recherché et informations utiles…"></textarea>
+              </label>
+            </div>
+            <div class="offer-form-actions">
+              <button class="btn btn-secondary" type="button" (click)="cancelOfferForm()">Annuler</button>
+              <button class="btn btn-primary" type="submit" [disabled]="offerForm.invalid || isSavingOffer">
+                {{ offerSubmitLabel }}
+              </button>
+            </div>
+          </form>
+
+          <!-- Offers List -->
+          <div class="offers-list" *ngIf="!isLoadingOffers && offers.length">
+            <div class="offer-card" *ngFor="let offer of offers">
+              <div class="offer-card-top">
+                <div>
+                  <span class="offer-domain">{{ offer.domain }}</span>
+                  <h3>{{ offer.title }}</h3>
+                </div>
+                <span class="offer-status" [class.closed]="offer.status === 'closed' || offer.available_positions === 0">
+                  {{ offer.available_positions === 0 ? 'Complet' : (offer.status === 'open' ? 'Ouverte' : 'Clôturée') }}
+                </span>
+              </div>
+              <p class="offer-description">{{ offer.description }}</p>
+              <div class="offer-meta">
+                <span>◷ {{ offer.duration }}</span>
+                <span>⌖ {{ offer.location }}</span>
+                <span>▣ {{ offer.available_positions }} / {{ offer.positions }} place{{ offer.positions > 1 ? 's' : '' }} disponible{{ offer.available_positions === 1 ? '' : 's' }}</span>
+                <span>{{ offer.work_mode === 'onsite' ? 'Présentiel' : (offer.work_mode === 'hybrid' ? 'Hybride' : 'À distance') }}</span>
+                <span *ngIf="offer.deadline">Date limite : {{ offer.deadline | date:'mediumDate' }}</span>
+              </div>
+              <div class="offer-skills" *ngIf="offer.required_skills?.length">
+                <span *ngFor="let skill of offer.required_skills" class="skill-tag">{{ skill }}</span>
+              </div>
+              <div class="offer-actions">
+                <button class="btn btn-secondary" type="button" (click)="openOfferForm(offer)">Modifier</button>
+                <button class="btn btn-danger" type="button" (click)="deleteOffer(offer)">Supprimer</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="empty-state" *ngIf="!isLoadingOffers && !offers.length && !isOfferFormOpen">
+            <span class="empty-icon">▣</span>
+            <strong>Pas encore d'offre de stage</strong>
+            <p>Ajoutez une offre pour présenter vos stages aux étudiants.</p>
+            <button class="btn btn-primary" type="button" (click)="openOfferForm()">Créer ma première offre</button>
+          </div>
+        </section>
+
+        <!-- Company Applications Section with AI Matching -->
+        <section class="panel" id="company-applications">
+          <div class="panel-header">
+            <div>
+              <span class="panel-badge">ENTREPRISE</span>
+              <h2>Candidatures reçues</h2>
+            </div>
+            <div class="matching-controls" *ngIf="matchingOffers.length">
+              <label for="matching-offer">Offre à analyser</label>
+              <select
+                id="matching-offer"
+                [(ngModel)]="selectedOfferForMatching"
+                (ngModelChange)="onMatchingOfferChange()"
+              >
+                <option *ngFor="let offer of matchingOffers" [ngValue]="offer.id">{{ offer.title }}</option>
+              </select>
+              <button
+                class="btn btn-secondary"
+                type="button"
+                (click)="analyzeSelectedOffer()"
+                [disabled]="isLoadingMatching || selectedOfferForMatching === null"
+              >
+                {{ isLoadingMatching ? 'Analyse…' : 'Analyser la compatibilité' }}
+              </button>
+            </div>
+            <p class="loading-line" *ngIf="!isLoadingApplications && applications.length && !isLoadingOffers && !matchingOffers.length">
+              Aucune candidature n’est associée aux offres chargées.
+            </p>
+          </div>
+          
+          <div class="offer-feedback success-feedback" *ngIf="applicationMessage">{{ applicationMessage }}</div>
+          <div class="offer-feedback error-feedback" *ngIf="applicationErrorMessage">{{ applicationErrorMessage }}</div>
+          
+          <p class="loading-line" *ngIf="isLoadingApplications">Chargement des candidatures…</p>
+          
+          <div class="applications-list" *ngIf="!isLoadingApplications && applications.length">
+            <div class="application-card" *ngFor="let application of applications">
+              <div class="application-card-header">
+                <div>
+                  <span class="offer-domain">{{ application.internshipOffer?.title || 'Offre de stage' }}</span>
+                  <h3>{{ application.student?.first_name }} {{ application.student?.last_name }}</h3>
+                  <a class="student-email" *ngIf="application.student?.email" [href]="'mailto:' + application.student?.email">
+                    {{ application.student?.email }}
+                  </a>
+                </div>
+                <div class="application-status-section">
+                  <span class="application-status" [ngClass]="'status-' + application.status">
+                    {{ application.status === 'pending' ? 'En attente' : (application.status === 'accepted' ? 'Acceptée' : 'Refusée') }}
+                  </span>
+                  <div class="matching-score" *ngIf="getMatchingDetails(application.id) as matchingDetails">
+                    <span class="score-label">Score:</span>
+                    <span class="score-value" [style.color]="getScoreColor(getMatchingScore(application.id))">
+                      {{ getMatchingScore(application.id) }}%
+                    </span>
+                    <span class="score-badge" [style.background-color]="getScoreColor(getMatchingScore(application.id))">
+                      {{ getScoreLabel(getMatchingScore(application.id)) }}
+                    </span>
+                    <span class="score-source">
+                      {{ matchingDetails.source === 'ml' ? 'Modèle ML' : 'Règles de secours' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- AI Matching Details -->
+              <div class="matching-details" *ngIf="showMatchingDetails && getMatchingDetails(application.id) as details">
+                <div class="matching-details-header">
+                  <strong>Analyse de compatibilité</strong>
+                  <button class="text-action" type="button" (click)="toggleMatchingDetails()">Fermer ✕</button>
+                </div>
+                <div class="matching-criteria">
+                  <div class="criteria-item" *ngFor="let explanation of details.explanation">
+                    <span class="criteria-text">{{ explanation }}</span>
+                  </div>
+                </div>
+                <div class="matching-contributions" *ngIf="details.contributions">
+                  <strong>Contribution des caractéristiques</strong>
+                  <div class="contribution-item" *ngFor="let item of details.contributions | keyvalue">
+                    <span>{{ getContributionLabel(item.key) }}</span>
+                    <span>{{ item.value.contribution | number:'1.0-2' }} pts ({{ item.value.poids_pourcent | number:'1.0-2' }}%)</span>
+                  </div>
+                </div>
+                <div class="matching-skills-section">
+                  <div class="skills-group" *ngIf="details.matching_skills.length">
+                    <strong>Compétences correspondantes:</strong>
+                    <div class="skill-tags">
+                      <span class="skill-tag match" *ngFor="let skill of details.matching_skills">
+                        {{ skill.name }} ({{ skill.level }})
+                      </span>
+                    </div>
+                  </div>
+                  <div class="skills-group" *ngIf="details.missing_skills.length">
+                    <strong>Compétences manquantes:</strong>
+                    <div class="skill-tags">
+                      <span class="skill-tag missing" *ngFor="let skill of details.missing_skills">
+                        {{ skill }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="student-profile-details" *ngIf="application.student?.profile as studentProfile">
+                <span *ngIf="studentProfile.formation" class="profile-tag">🎓 {{ studentProfile.formation }}</span>
+                <span *ngIf="studentProfile.specialite" class="profile-tag">✦ {{ studentProfile.specialite }}</span>
+                <span *ngIf="studentProfile.niveau" class="profile-tag">◷ {{ studentProfile.niveau }}</span>
+                <span *ngIf="studentProfile.ville" class="profile-tag">⌖ {{ studentProfile.ville }}</span>
+                <span *ngIf="studentProfile.telephone" class="profile-tag">☎ {{ studentProfile.telephone }}</span>
+              </div>
+              <p class="student-bio" *ngIf="application.student?.profile?.bio">{{ application.student?.profile?.bio }}</p>
+              <div class="student-cvs" *ngIf="application.student?.cvs?.length">
+                <strong>CV disponible</strong>
+                <a
+                  *ngFor="let cv of application.student?.cvs"
+                  [href]="getCvDownloadUrl(cv)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="cv-link">
+                  {{ cv.file_name }} ↗
+                </a>
+              </div>
+              <p class="application-date" *ngIf="application.applied_at">Candidature reçue le {{ application.applied_at | date:'mediumDate' }}</p>
+              <div class="application-actions">
+                <button
+                  *ngIf="application.status !== 'accepted'"
+                  class="btn btn-primary"
+                  type="button"
+                  [disabled]="updatingApplicationId !== null"
+                  (click)="updateApplicationStatus(application, 'accepted')">
+                  {{ updatingApplicationId === application.id ? 'Mise à jour…' : (application.status === 'rejected' ? 'Réaccepter' : 'Accepter') }}
+                </button>
+                <button
+                  *ngIf="application.status !== 'rejected'"
+                  class="btn btn-danger"
+                  type="button"
+                  [disabled]="updatingApplicationId !== null"
+                  (click)="updateApplicationStatus(application, 'rejected')">
+                  {{ updatingApplicationId === application.id ? 'Mise à jour…' : 'Refuser' }}
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  [disabled]="openingConversationId !== null"
+                  (click)="openApplicationConversation(application)">
+                  {{ openingConversationId === application.id ? 'Ouverture…' : 'Envoyer un message' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="empty-state" *ngIf="!isLoadingApplications && !applications.length">
+            <span class="empty-icon">▤</span>
+            <strong>Aucune candidature reçue</strong>
+            <p>Vos candidatures apparaîtront ici une fois que les étudiants auront postulé à vos offres.</p>
+          </div>
+        </section>
+      </ng-container>
+    </div>
+  </main>
+</div>

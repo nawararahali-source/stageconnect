@@ -1,0 +1,123 @@
+<div class="messages-layout">
+  <app-sidebar
+    [isCollapsed]="isSidebarCollapsed"
+    [userRole]="isStudent ? 'student' : 'company'"
+    [userName]="fullName"
+    (logout)="logout()"
+  ></app-sidebar>
+
+  <main class="messages-main" [class.sidebar-collapsed]="isSidebarCollapsed">
+    <header class="messages-topbar">
+      <a routerLink="/dashboard" class="back-link">← Tableau de bord</a>
+      <div class="messages-account">
+        <span>{{ fullName }}</span>
+        <span class="role-label">{{ isStudent ? 'Étudiant' : 'Entreprise' }}</span>
+      </div>
+    </header>
+
+    <section class="messages-content">
+      <div class="messages-heading">
+        <div>
+          <span class="heading-eyebrow">ÉCHANGES</span>
+          <h1>Messages</h1>
+          <p>Discutez à propos de vos candidatures.</p>
+        </div>
+      </div>
+
+      <p class="messages-error" role="alert" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <div class="messenger-card" [class.show-conversations]="isConversationListVisible">
+        <aside class="conversation-panel">
+          <div class="conversation-panel-heading">
+            <h2>Conversations</h2>
+            <span>{{ conversations.length }}</span>
+          </div>
+          <p class="conversation-loading" *ngIf="isLoading && !conversations.length">Chargement…</p>
+          <div class="conversation-empty" *ngIf="!isLoading && !conversations.length">
+            <span class="empty-message-icon">✉</span>
+            <strong>Aucune conversation</strong>
+            <p>Ouvrez une discussion depuis une candidature.</p>
+          </div>
+          <button
+            type="button"
+            class="conversation-item"
+            *ngFor="let conversation of conversations"
+            [class.selected]="conversation.id === selectedConversationId"
+            (click)="selectConversation(conversation)"
+          >
+            <span class="participant-avatar">
+              {{ conversation.other_participant.name.charAt(0) || '?' }}
+            </span>
+            <span class="conversation-item-copy">
+              <span class="conversation-item-top">
+                <strong>{{ conversation.other_participant.name }}</strong>
+                <span class="unread-badge" *ngIf="conversation.unread_count">
+                  {{ conversation.unread_count > 99 ? '99+' : conversation.unread_count }}
+                </span>
+              </span>
+              <span class="conversation-offer">{{ conversation.offer_title }}</span>
+              <span class="conversation-preview">
+                {{ conversation.last_message?.body || 'Aucun message pour le moment' }}
+              </span>
+            </span>
+          </button>
+        </aside>
+
+        <section class="thread-panel" *ngIf="selectedConversation as conversation">
+          <header class="thread-header">
+            <button type="button" class="mobile-back" (click)="backToConversations()">←</button>
+            <span class="participant-avatar thread-avatar">
+              {{ conversation.other_participant.name.charAt(0) || '?' }}
+            </span>
+            <div class="thread-title">
+              <h2>{{ conversation.other_participant.name }}</h2>
+              <span>{{ conversation.offer_title }}</span>
+            </div>
+          </header>
+
+          <div class="message-list" #messageList aria-live="polite">
+            <div class="thread-empty" *ngIf="!messages.length">
+              <strong>Commencez la conversation</strong>
+              <span>Échangez au sujet de cette candidature.</span>
+            </div>
+            <div
+              class="message-row"
+              *ngFor="let message of messages"
+              [class.own-message]="message.sender_id === user?.id"
+            >
+              <article class="message-bubble">
+                <p>{{ message.body }}</p>
+                <time [attr.datetime]="message.created_at">{{ message.created_at | date:'shortTime' }}</time>
+              </article>
+            </div>
+          </div>
+
+          <form class="message-composer" (ngSubmit)="sendMessage()">
+            <label class="sr-only" for="message-draft">Votre message</label>
+            <textarea
+              id="message-draft"
+              name="message"
+              [(ngModel)]="draft"
+              (keydown)="onComposerKeydown($event)"
+              maxlength="2000"
+              rows="1"
+              placeholder="Écrivez votre message…"
+              [disabled]="isSending"
+            ></textarea>
+            <span class="draft-count">{{ draft.length }}/2000</span>
+            <button class="send-button" type="submit" [disabled]="!draft.trim() || isSending || draft.length > 2000">
+              {{ isSending ? 'Envoi…' : 'Envoyer' }}
+              <span aria-hidden="true">➤</span>
+            </button>
+          </form>
+        </section>
+
+        <section class="no-conversation-panel" *ngIf="!selectedConversation">
+          <div class="no-conversation-icon">✉</div>
+          <h2>Aucune conversation</h2>
+          <p>Une conversation apparaîtra ici lorsque vous contacterez l’autre participant d’une candidature.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>

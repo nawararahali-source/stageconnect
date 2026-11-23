@@ -1,0 +1,33 @@
+<!-- Text Skeleton -->
+<ng-container [ngSwitch]="type">
+  <div *ngSwitchCase="'text'" class="skeleton-wrapper">
+    <div 
+      *ngFor="let i of [].constructor(count)"
+      class="skeleton skeleton-text"
+      [style.width]="width"
+      [style.height]="height"
+      [class.rounded]="rounded"
+    ></div>
+  </div>
+
+  <!-- Avatar Skeleton -->
+  <div *ngSwitchCase="'avatar'" class="skeleton skeleton-avatar" [style.width]="width" [style.height]="height"></div>
+
+  <!-- Card Skeleton -->
+  <div *ngSwitchCase="'card'" class="skeleton-card">
+    <div class="skeleton skeleton-card-header"></div>
+    <div class="skeleton skeleton-card-body"></div>
+    <div class="skeleton skeleton-card-footer"></div>
+  </div>
+
+  <!-- List Skeleton -->
+  <div *ngSwitchCase="'list'" class="skeleton-list">
+    <div *ngFor="let i of [].constructor(count)" class="skeleton-list-item">
+      <div class="skeleton skeleton-list-avatar"></div>
+      <div class="skeleton skeleton-list-content">
+        <div class="skeleton skeleton-list-title"></div>
+        <div class="skeleton skeleton-list-subtitle"></div>
+      </div>
+    </div>
+  </div>
+</ng-container>

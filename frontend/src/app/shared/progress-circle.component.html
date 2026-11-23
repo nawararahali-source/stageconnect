@@ -1,0 +1,36 @@
+<div class="progress-circle" [style.width.px]="size" [style.height.px]="size">
+  <svg
+    [attr.width]="size"
+    [attr.height]="size"
+    class="progress-svg"
+  >
+    <!-- Background circle -->
+    <circle
+      [attr.r]="size / 2 - strokeWidth"
+      [attr.cx]="size / 2"
+      [attr.cy]="size / 2"
+      [attr.stroke-width]="strokeWidth"
+      [attr.stroke]="trackColor"
+      fill="none"
+      class="progress-track"
+    />
+    <!-- Progress circle -->
+    <circle
+      [attr.r]="size / 2 - strokeWidth"
+      [attr.cx]="size / 2"
+      [attr.cy]="size / 2"
+      [attr.stroke-width]="strokeWidth"
+      [attr.stroke]="strokeColor"
+      [attr.stroke-dasharray]="circumference"
+      [attr.stroke-dashoffset]="offset"
+      fill="none"
+      class="progress-bar"
+      stroke-linecap="round"
+    />
+  </svg>
+  <div class="progress-content" *ngIf="showLabel">
+    <span class="progress-value" [style.color]="textColor">{{ value }}%</span>
+    <span class="progress-label" *ngIf="label">{{ label }}</span>
+    <span class="progress-score" [style.color]="textColor">{{ scoreLabel }}</span>
+  </div>
+</div>
