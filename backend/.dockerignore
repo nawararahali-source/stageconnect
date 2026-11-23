@@ -1,0 +1,8 @@
+vendor
+node_modules
+.env
+.env.testing
+.phpunit.result.cache
+.pytest_cache
+storage/logs/*
+tests
