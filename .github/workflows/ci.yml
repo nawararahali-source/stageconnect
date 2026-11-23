@@ -122,3 +122,48 @@ jobs:
 
       - name: Tests
         run: pytest -v
+
+  security:
+    name: Security (Gitleaks + audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (détection de secrets)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Installer PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      # Vulnérabilités connues restantes : laravel/framework 9.x (fin de vie,
+      # correctifs uniquement en 10+) et fruitcake/laravel-cors (abandonné).
+      # Justification détaillée dans le rapport (Lot 5). Le rapport est archivé.
+      - name: Composer audit
+        working-directory: backend
+        continue-on-error: true
+        run: composer audit --locked --no-interaction 2>&1 | tee composer-audit.txt
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: npm audit (niveau high)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high 2>&1 | tee npm-audit.txt
+
+      - name: Archiver les rapports de sécurité
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-securite
+          path: |
+            backend/composer-audit.txt
+            frontend/npm-audit.txt
