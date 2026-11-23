@@ -33,6 +33,7 @@ jobs:
       DB_DATABASE: stageconnect_test
       DB_USERNAME: root
       DB_PASSWORD: root
+      APP_DEBUG: "false"
     steps:
       - uses: actions/checkout@v4
 
