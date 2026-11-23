@@ -122,3 +122,34 @@ jobs:
 
       - name: Tests
         run: pytest -v
+
+  security:
+    name: Security (Gitleaks + audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (détection de secrets)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Installer PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Composer audit
+        working-directory: backend
+        run: composer audit --no-interaction
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: npm audit (niveau high)
+        working-directory: frontend
+        run: npm audit --audit-level=high
