@@ -106,7 +106,7 @@ class AIService
     public function generateCoverLetter(array $studentData, array $offerData): string
     {
         if (empty($this->apiKey)) {
-            throw new \RuntimeException('Clé API Gemini non configurée. Vérifiez GEMINI_API_KEY dans le fichier .env.');
+            throw new \App\Exceptions\AiUserMessageException('Clé API Gemini non configurée. Vérifiez GEMINI_API_KEY dans le fichier .env.');
         }
 
         $prompt = "Rédige en français une lettre de motivation professionnelle de 200 à 250 mots pour cette candidature de stage.\n";
@@ -132,7 +132,7 @@ class AIService
             Log::warning('Gemini cover letter request failed to connect', [
                 'message' => $exception->getMessage(),
             ]);
-            throw new \RuntimeException('Le service Gemini est temporairement inaccessible. Veuillez réessayer plus tard.');
+            throw new \App\Exceptions\AiUserMessageException('Le service Gemini est temporairement inaccessible. Veuillez réessayer plus tard.');
         }
 
         if (!$response->successful()) {
@@ -142,14 +142,14 @@ class AIService
             ]);
 
             if ($response->status() === 429) {
-                throw new \RuntimeException('Le quota Gemini est atteint. Veuillez réessayer plus tard.');
+                throw new \App\Exceptions\AiUserMessageException('Le quota Gemini est atteint. Veuillez réessayer plus tard.');
             }
 
             if ($response->status() === 503) {
-                throw new \RuntimeException('Le service Gemini est temporairement indisponible. Veuillez réessayer dans quelques minutes.');
+                throw new \App\Exceptions\AiUserMessageException('Le service Gemini est temporairement indisponible. Veuillez réessayer dans quelques minutes.');
             }
 
-            throw new \RuntimeException('Gemini n’a pas pu générer la lettre (erreur HTTP ' . $response->status() . ').');
+            throw new \App\Exceptions\AiUserMessageException('Gemini n’a pas pu générer la lettre (erreur HTTP ' . $response->status() . ').');
         }
 
         $responseData = $response->json();
@@ -158,7 +158,7 @@ class AIService
             : '';
 
         if ($letter === '') {
-            throw new \RuntimeException('Gemini a renvoyé une réponse vide. Veuillez réessayer.');
+            throw new \App\Exceptions\AiUserMessageException('Gemini a renvoyé une réponse vide. Veuillez réessayer.');
         }
 
         preg_match_all("/[\\p{L}\\p{N}]+(?:['’\\-][\\p{L}\\p{N}]+)*/u", $letter, $words);
@@ -167,7 +167,7 @@ class AIService
             Log::warning('Gemini cover letter has an invalid word count', [
                 'word_count' => $wordCount,
             ]);
-            throw new \RuntimeException('La lettre générée ne respecte pas la longueur demandée. Veuillez la régénérer.');
+            throw new \App\Exceptions\AiUserMessageException('La lettre générée ne respecte pas la longueur demandée. Veuillez la régénérer.');
         }
 
         return $letter;

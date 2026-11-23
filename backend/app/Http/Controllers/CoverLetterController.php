@@ -78,7 +78,7 @@ class CoverLetterController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Impossible de générer la lettre. Veuillez réessayer.',
+                'message' => $exception instanceof \App\Exceptions\AiUserMessageException ? $exception->getMessage() : 'Impossible de générer la lettre. Veuillez réessayer.',
             ], 503);
         }
     }
