@@ -44,7 +44,7 @@ Route::get('/health', function () {
     return response()->json([
         'status' => $db === 'up' ? 'ok' : 'degraded',
         'database' => $db,
-        'version' => env('APP_VERSION', 'dev'),
+        'version' => config('app.build_info')['version'],
         'time' => now()->toIso8601String(),
     ], $db === 'up' ? 200 : 503);
 });
