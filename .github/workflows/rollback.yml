@@ -1,0 +1,67 @@
+name: Rollback (environnement de test)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de l'image stable a redeployer (ex: sha-98e2ca5)"
+        required: true
+        default: sha-98e2ca5
+
+jobs:
+  rollback:
+    name: Rollback vers une version stable
+    runs-on: ubuntu-latest
+    environment: test
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configuration de test (jetable)
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          echo "IMAGE_TAG=$TAG" >> "$GITHUB_ENV"
+          DBPW=$(openssl rand -hex 16)
+          APPKEY="base64:$(openssl rand -base64 32)"
+          echo "::add-mask::$DBPW"
+          echo "::add-mask::$APPKEY"
+          echo "DB_PASSWORD=$DBPW" >> "$GITHUB_ENV"
+          echo "APP_KEY=$APPKEY" >> "$GITHUB_ENV"
+
+      - name: Redeployer la version stable
+        run: |
+          docker compose -f docker-compose.test.yml pull
+          docker compose -f docker-compose.test.yml up -d
+
+      - name: Smoke tests apres rollback
+        run: |
+          sed -i 's/\r$//' scripts/smoke-test.sh
+          EXPECTED_VERSION="$IMAGE_TAG" bash scripts/smoke-test.sh
+
+      - name: Logs des conteneurs (en cas d'echec)
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs --no-color
+
+      - name: Trace du rollback
+        if: success()
+        run: |
+          echo "### Rollback en test" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version restauree : \`$IMAGE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Declenche par : $GITHUB_ACTOR" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke tests : OK" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Arreter l'environnement de test
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
