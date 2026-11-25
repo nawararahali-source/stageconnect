@@ -108,7 +108,7 @@ class ProfileAnalysisController extends Controller
             return null;
 
         } catch (\Exception $e) {
-            \Log::error('CV Extraction Error', [
+            \Illuminate\Support\Facades\Log::error('CV Extraction Error', [
                 'message' => $e->getMessage(),
                 'cv_id' => $cv->id
             ]);
